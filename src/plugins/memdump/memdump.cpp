@@ -152,6 +152,8 @@ static void save_file_metadata(const drakvuf_trap_info_t* info,
     json_object_object_add(jobj, "SequenceNumber", json_object_new_int(sequence_number));
 
     fprintf(fp, "%s\n", json_object_get_string(jobj));
+
+    PRINT_DEBUG("[MEMDUMP] %s",json_object_get_string(jobj));
     fclose(fp);
 
     json_object_put(jobj);
@@ -470,7 +472,7 @@ bool inspect_stack_ptr(drakvuf_t drakvuf, drakvuf_trap_info_t* info, memdump* pl
             {
                 PRINT_DEBUG("[MEMDUMP] Failed to save memory dump - internal error\n");
             }
-
+            PRINT_DEBUG("[MEMDUMP] Stack heuristic dumpped");
             break;
         }
     }
@@ -511,8 +513,8 @@ static event_response_t terminate_process_hook_cb(drakvuf_t drakvuf, drakvuf_tra
 
     if (process_handle != ~0ULL)
     {
-        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, ignore\n");
-        return VMI_EVENT_RESPONSE_NONE;
+        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, do not ignore\n");
+        //return VMI_EVENT_RESPONSE_NONE;
     }
 
     auto plugin = get_trap_plugin<memdump>(info);
@@ -591,8 +593,8 @@ static event_response_t free_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_t
 
     if (process_handle != ~0ULL)
     {
-        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, ignore\n");
-        return VMI_EVENT_RESPONSE_NONE;
+        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, do not ignore\n");
+        //return VMI_EVENT_RESPONSE_NONE;
     }
 
     auto plugin = get_trap_plugin<memdump>(info);
@@ -675,10 +677,14 @@ static event_response_t protect_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvu
     // OUT PVOID *BaseAddress
     addr_t mem_base_address_ptr = drakvuf_get_function_argument(drakvuf, info, 2);
 
+    
+    // OUT new protection value
+    auto new_protection_value = drakvuf_get_function_argument(drakvuf, info, 4);
+
     if (process_handle != ~0ULL)
     {
-        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, ignore\n");
-        return VMI_EVENT_RESPONSE_NONE;
+        PRINT_DEBUG("[MEMDUMP] Process handle not pointing to self, do not ignore\n");
+        //return VMI_EVENT_RESPONSE_NONE;
     }
 
     auto plugin = get_trap_plugin<memdump>(info);
@@ -694,7 +700,7 @@ static event_response_t protect_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvu
 
     if (VMI_SUCCESS != vmi_read_addr(vmi, &ctx, &mem_base_address))
     {
-        PRINT_DEBUG("[MEMDUMP] Failed to read base address in NtProtectVirtualMemory\n");
+        //PRINT_DEBUG("[MEMDUMP] Failed to read base address in NtProtectVirtualMemory\n");
         drakvuf_release_vmi(drakvuf);
         return VMI_EVENT_RESPONSE_NONE;
     }
@@ -703,7 +709,7 @@ static event_response_t protect_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvu
 
     if (!drakvuf_find_mmvad(drakvuf, info->attached_proc_data.base_addr, mem_base_address, &mmvad))
     {
-        PRINT_DEBUG("[MEMDUMP] Failed to find MMVAD for memory passed to NtProtectVirtualMemory\n");
+        //PRINT_DEBUG("[MEMDUMP] Failed to find MMVAD for memory passed to NtProtectVirtualMemory\n");
         drakvuf_release_vmi(drakvuf);
         return VMI_EVENT_RESPONSE_NONE;
     }
@@ -714,7 +720,7 @@ static event_response_t protect_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvu
 
     if (VMI_SUCCESS != vmi_read_16(vmi, &ctx, &magic))
     {
-        PRINT_DEBUG("[MEMDUMP] Failed to access memory to be used with NtProtectVirtualMemory\n");
+        //PRINT_DEBUG("[MEMDUMP] Failed to access memory to be used with NtProtectVirtualMemory\n");
         drakvuf_release_vmi(drakvuf);
         return VMI_EVENT_RESPONSE_NONE;
     }
@@ -749,8 +755,11 @@ static event_response_t write_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_
     addr_t buffer_size = drakvuf_get_function_argument(drakvuf, info, 4);
 
     // don't dump self-writes
-    if (process_handle == ~0ULL)
+    if (process_handle == ~0ULL){
+        
+        PRINT_DEBUG("[MEMDUMP] Captured self-writes: baseAddress addr 0x%08lx,buffer size %lu\n",base_address,buffer_size);
         return VMI_EVENT_RESPONSE_NONE;
+    }
 
     auto plugin = get_trap_plugin<memdump>(info);
 
@@ -805,7 +814,7 @@ static event_response_t create_remote_thread_hook_cb(drakvuf_t drakvuf, drakvuf_
     vmi_pid_t target_process_pid;
     if (!drakvuf_get_pid_from_handle(drakvuf, info, target_process_handle, &target_process_pid))
     {
-        PRINT_DEBUG("[MEMDUMP] Failed to retrieve target process pid\n");
+        //PRINT_DEBUG("[MEMDUMP] Failed to retrieve target process pid\n");
         return VMI_EVENT_RESPONSE_NONE;
     }
 

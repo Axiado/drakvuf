@@ -215,6 +215,8 @@ static void print_process_creation_result(
     char const* imagepath = imagepath_us ? reinterpret_cast<char const*>(imagepath_us->contents) : "";
     char const* dllpath = dllpath_us ? reinterpret_cast<char const*>(dllpath_us->contents) : "";
 
+    PRINT_DEBUG("[PROCMON] creating new process: ImagePathName: %s\n",imagepath);
+
     fmt::print(f->m_output_format, "procmon", drakvuf, info,
         keyval("Status", fmt::Xval(status)),
         keyval("NewProcessHandle", fmt::Xval(new_process_handle)),
@@ -756,8 +758,8 @@ win_procmon::win_procmon(drakvuf_t drakvuf, output_format_t output) : pluginex(d
         !register_trap(nullptr, clean_process_address_space_hook_cb, bp.for_syscall_name("MmCleanProcessAddressSpace")) ||
         !register_trap(nullptr, open_process_hook_cb, bp.for_syscall_name("NtOpenProcess")) ||
         !register_trap(nullptr, open_thread_hook_cb, bp.for_syscall_name("NtOpenThread")) ||
-        !register_trap(nullptr, protect_virtual_memory_hook_cb, bp.for_syscall_name("NtProtectVirtualMemory")) ||
-        !register_trap(nullptr, adjust_privileges_token_cb, bp.for_syscall_name("NtAdjustPrivilegesToken")))
+        !register_trap(nullptr, protect_virtual_memory_hook_cb, bp.for_syscall_name("NtProtectVirtualMemory")) /*||
+        !register_trap(nullptr, adjust_privileges_token_cb, bp.for_syscall_name("NtAdjustPrivilegesToken")) */)
     {
         throw -1;
     }

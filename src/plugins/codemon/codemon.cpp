@@ -575,6 +575,8 @@ bool retrieve_and_filter_vad_name(drakvuf_t drakvuf, addr_t file_name_ptr, dump_
 
     if (dump_metadata->vad_name != nullptr)
     {
+        
+        printf("[CODEMON] instruction fetch within vad name %s\n",(char*) dump_metadata->vad_name->contents);
         //If we don't want to analyse the vad belonging to system files:
         if (!analyse_system_dll_vad)
         {

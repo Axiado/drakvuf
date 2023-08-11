@@ -254,7 +254,7 @@ event_response_t internal_perform_hooking(drakvuf_t drakvuf, drakvuf_trap_info* 
         addr_t stack_pointer;
         if (inject_copy_memory(plugin, drakvuf, info, trap->cb, dll_meta->set_stack_marker(), dll_meta->pf_current_addr, &stack_pointer))
         {
-            PRINT_DEBUG("[USERHOOK] Export info not accessible, page fault %llx\n", (unsigned long long)dll_meta->pf_current_addr);
+            //PRINT_DEBUG("[USERHOOK] Export info not accessible, page fault %llx\n", (unsigned long long)dll_meta->pf_current_addr);
             dll_meta->pf_current_addr += VMI_PS_4KB;
             params->set_result_call_params(info, stack_pointer);
             return VMI_EVENT_RESPONSE_NONE;

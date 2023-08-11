@@ -111,7 +111,7 @@
 #include "json-profile.h"
 
 #ifdef DRAKVUF_DEBUG
-bool verbose = 0;
+bool verbose = 6;
 #endif
 
 

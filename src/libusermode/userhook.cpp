@@ -199,13 +199,13 @@ static dll_t* create_dll_meta(drakvuf_t drakvuf, drakvuf_trap_info* info, userho
     mmvad_info_t mmvad;
     if (!drakvuf_find_mmvad(drakvuf, proc_data.base_addr, dll_base, &mmvad))
     {
-        PRINT_DEBUG("[USERHOOK] Failed to find MMVAD\n");
+        //PRINT_DEBUG("[USERHOOK] Failed to find MMVAD\n");
         return nullptr;
     }
 
     if (mmvad.file_name_ptr == 0)
     {
-        PRINT_DEBUG("[USERHOOK] MMVAD null file name pointer\n");
+        //PRINT_DEBUG("[USERHOOK] MMVAD null file name pointer\n");
         return nullptr;
     }
 
@@ -686,8 +686,8 @@ static event_response_t copy_on_write_handler(drakvuf_t drakvuf, drakvuf_trap_in
         }
     }
 
-    PRINT_DEBUG("[USERHOOK] copy on write called: vaddr: %llx pte: %llx, pid: %d, cr3: %llx\n", (unsigned long long)vaddr, (unsigned long long)pte, proc_data.pid, (unsigned long long)info->regs->cr3);
-    PRINT_DEBUG("[USERHOOK] old CoW PA: %llx\n", (unsigned long long)pa);
+    //PRINT_DEBUG("[USERHOOK] copy on write called: vaddr: %llx pte: %llx, pid: %d, cr3: %llx\n", (unsigned long long)vaddr, (unsigned long long)pte, proc_data.pid, (unsigned long long)info->regs->cr3);
+    //PRINT_DEBUG("[USERHOOK] old CoW PA: %llx\n", (unsigned long long)pa);
 
     if (!hooks.empty())
     {
@@ -778,8 +778,8 @@ userhook::userhook(drakvuf_t drakvuf): pluginex(drakvuf, OUTPUT_DEFAULT), m_drak
 #ifndef LIBUSERMODE_USE_INJECTION
         !register_trap(nullptr, system_service_handler_hook_cb, bp.for_syscall_name("KiSystemServiceHandler"), nullptr, UNLIMITED_TTL) ||
 #endif
-        !register_trap(nullptr, clean_process_address_space_hook_cb, bp.for_syscall_name("MmCleanProcessAddressSpace"), nullptr, UNLIMITED_TTL) ||
-        !register_trap(nullptr, copy_on_write_handler, bp.for_syscall_name("MiCopyOnWrite"), nullptr, UNLIMITED_TTL))
+        !register_trap(nullptr, clean_process_address_space_hook_cb, bp.for_syscall_name("MmCleanProcessAddressSpace"), nullptr, UNLIMITED_TTL) /*||
+        !register_trap(nullptr, copy_on_write_handler, bp.for_syscall_name("MiCopyOnWrite"), nullptr, UNLIMITED_TTL)*/)
         throw -1;
 }
 

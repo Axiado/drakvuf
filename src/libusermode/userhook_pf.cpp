@@ -180,7 +180,7 @@ event_response_t internal_perform_hooking(drakvuf_t drakvuf, drakvuf_trap_info* 
 
         if (vmi_request_page_fault(vmi, info->vcpu, dll_meta->pf_current_addr, 0) == VMI_SUCCESS)
         {
-            PRINT_DEBUG("[USERHOOK] Export info not accessible, page fault %llx\n", (unsigned long long)dll_meta->pf_current_addr);
+            //PRINT_DEBUG("[USERHOOK] Export info not accessible, page fault %llx\n", (unsigned long long)dll_meta->pf_current_addr);
             plugin->pf_in_progress.insert(std::make_pair(proc_data.pid, proc_data.tid));
             dll_meta->pf_current_addr += VMI_PS_4KB;
         }
