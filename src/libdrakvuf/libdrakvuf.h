@@ -109,6 +109,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+#define DRAKVUF_DEBUG 1
 #define NOEXCEPT noexcept
 #else
 #define NOEXCEPT
@@ -136,10 +137,10 @@ extern "C" {
     } while (0)
 
 #ifdef DRAKVUF_DEBUG
-extern bool verbose;
+
 #define PRINT_DEBUG(...) \
     do { \
-        if(verbose) { eprint_current_time(); fprintf (stderr, __VA_ARGS__); } \
+        { eprint_current_time(); fprintf (stderr, __VA_ARGS__); } \
     } while (0)
 #else
 #define PRINT_DEBUG(...) do {} while(0)
