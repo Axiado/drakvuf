@@ -1,4 +1,0 @@
-[submodule "dwarf2json"]
-	path = dwarf2json
-	url = https://github.com/tklengyel/dwarf2json
-	ignore = dirty
