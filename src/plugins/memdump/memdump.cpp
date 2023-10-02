@@ -105,6 +105,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include <unistd.h>
+#include <arpa/inet.h>
+
 #include "plugins/plugins.h"
 #include "plugins/output_format.h"
 
@@ -159,6 +162,29 @@ static void save_file_metadata(const drakvuf_trap_info_t* info,
     json_object_put(jobj);
 }
 
+static void send_udp_packet(char *message, char* server_ip, int server_port) {
+    struct sockaddr_in si_other;
+    int s, slen = sizeof(si_other);
+
+    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+        return;
+    }
+
+    memset(&si_other, 0, sizeof(si_other));
+    si_other.sin_family = AF_INET;
+    si_other.sin_port = htons(server_port);
+
+    if (inet_aton(server_ip, &si_other.sin_addr) == 0) {
+        fprintf(stderr, "inet_aton() failed\n");
+        return;
+    }
+
+    if (sendto(s, message, strlen(message), 0, (struct sockaddr *) &si_other, slen) == -1) {
+        return;
+    }
+
+    close(s);
+}
 /**
  * Dumps the memory specified by access context, from `ctx->addr` (first byte) to `ctx->addr + len_bytes - 1` (last byte).
  * File is stored in a path provided in --memdump-dir command line option and named according to the scheme:
@@ -198,6 +224,16 @@ bool dump_memory_region(
     GChecksum* checksum = nullptr;
 
     size_t tmp_len_bytes = len_bytes;
+
+    
+    const char* process_name = info->attached_proc_data.name;
+    if (strstr(process_name, "svchost.exe") || 
+        strstr(process_name, "TrustedInstaller.exe") ||
+        strstr(process_name, "\\Windows\\System32\\") ||
+        strstr(process_name, "\\Windows\\SysWOW64\\")) {
+
+        return true;
+    }
 
     std::optional<fmt::Nval<decltype(extras->write_virtual_memory_extras.target_pid)>> target_pid;
     std::optional<fmt::Xval<decltype(extras->write_virtual_memory_extras.base_address)>> write_addr;
@@ -330,6 +366,10 @@ printout:
         {
             fmt::print(plugin->m_output_format, "memdump", drakvuf, info, default_print);
         }
+        char local_message_buf[1024];
+        snprintf(local_message_buf, sizeof(local_message_buf), "File: %s",display_file);
+        send_udp_packet(local_message_buf,"127.0.0.1",8039);
+
     }
 
 done:
@@ -464,10 +504,27 @@ bool inspect_stack_ptr(drakvuf_t drakvuf, drakvuf_trap_info_t* info, memdump* pl
         if (page_valid && page_execute)
         {
             PRINT_DEBUG("[MEMDUMP] VX stack entry %llx\n", (unsigned long long) stack_val);
+            
+            // IN HANDLE ProcessHandle
+            addr_t process_handle = drakvuf_get_function_argument(drakvuf, info, 1);
+
+            char reason_buf[1024];
+            char* target_name = nullptr;    
+            vmi_pid_t target_pid;
+            addr_t process_addr = 0;
+
+            if ( drakvuf_get_pid_from_handle(drakvuf, info, process_handle, &target_pid) &&
+                drakvuf_find_process(drakvuf, target_pid, nullptr, &process_addr) )
+            {
+                target_name = drakvuf_get_process_name(drakvuf, process_addr, true);
+            }
+            if (!target_name)
+                target_name = g_strdup("<UNKNOWN>");
+            snprintf(reason_buf,sizeof(reason_buf),"Stack heuristic to %s",target_name);
 
             ctx.addr = begin;
 
-            if (!dump_memory_region(drakvuf, vmi, info, plugin, &ctx, len, "Stack heuristic",
+            if (!dump_memory_region(drakvuf, vmi, info, plugin, &ctx, len, reason_buf,
                     nullptr, false))
             {
                 PRINT_DEBUG("[MEMDUMP] Failed to save memory dump - internal error\n");
@@ -761,6 +818,19 @@ static event_response_t write_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_
         return VMI_EVENT_RESPONSE_NONE;
     }
 
+    const char* process_name = info->attached_proc_data.name;
+    if (strstr(process_name, "svchost.exe") || 
+        strstr(process_name, "\\Windows\\System32\\") ||
+        strstr(process_name, "\\Windows\\SysWOW64\\")) {
+        
+        return VMI_EVENT_RESPONSE_NONE;
+    }
+
+    if (buffer_size < 1024){
+        PRINT_DEBUG("[MEMDUMP] Do not dump small buffer, size %lu\n",buffer_size);
+        return VMI_EVENT_RESPONSE_NONE;
+    }
+
     auto plugin = get_trap_plugin<memdump>(info);
 
     vmi_instance_t vmi = drakvuf_lock_and_get_vmi(drakvuf);
@@ -773,6 +843,7 @@ static event_response_t write_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_
     vmi_pid_t target_pid;
     addr_t process_addr = 0;
     char* target_name = nullptr;
+    char reason_buf[1024];
 
     if ( drakvuf_get_pid_from_handle(drakvuf, info, process_handle, &target_pid) &&
         drakvuf_find_process(drakvuf, target_pid, nullptr, &process_addr) )
@@ -782,6 +853,7 @@ static event_response_t write_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_
 
     if (!target_name)
         target_name = g_strdup("<UNKNOWN>");
+    snprintf(reason_buf,sizeof(reason_buf),"NtWriteVirtualMemory called to %s",target_name);
 
     extras_t extras =
     {
@@ -794,7 +866,7 @@ static event_response_t write_virtual_memory_hook_cb(drakvuf_t drakvuf, drakvuf_
         },
     };
 
-    if (!dump_memory_region(drakvuf, vmi, info, plugin, &ctx, buffer_size, "NtWriteVirtualMemory called", &extras, true))
+    if (!dump_memory_region(drakvuf, vmi, info, plugin, &ctx, buffer_size, reason_buf, &extras, true))
     {
         PRINT_DEBUG("[MEMDUMP] Failed to store memory dump due to an internal error\n");
     }
@@ -868,7 +940,7 @@ static event_response_t set_information_thread_hook_cb(drakvuf_t drakvuf, drakvu
     addr_t resumed_ethread;
     if (!drakvuf_obj_ref_by_handle(drakvuf, info, caller_eprocess, resumed_thread_handle, OBJ_MANAGER_THREAD_OBJECT, &resumed_ethread))
     {
-        PRINT_DEBUG("[MEMDUMP] Failed to retrieve resumed_ethread\n");
+        // PRINT_DEBUG("[MEMDUMP] Failed to retrieve resumed_ethread\n");
         return VMI_EVENT_RESPONSE_NONE;
     }
 
@@ -998,15 +1070,15 @@ memdump::memdump(drakvuf_t drakvuf, const memdump_config* c, output_format_t out
         PRINT_DEBUG("mscorwks.dll profile not found, memdump will proceed without .NET hooks\n");
 
     breakpoint_in_system_process_searcher bp;
-    if (!c->memdump_disable_free_vm)
-        if (!register_trap(nullptr, free_virtual_memory_hook_cb,    bp.for_syscall_name("NtFreeVirtualMemory")))
-            throw -1;
+    // if (!c->memdump_disable_free_vm)
+    //     if (!register_trap(nullptr, free_virtual_memory_hook_cb,    bp.for_syscall_name("NtFreeVirtualMemory")))
+    //         throw -1;
     if (!c->memdump_disable_protect_vm)
         if (!register_trap(nullptr, protect_virtual_memory_hook_cb, bp.for_syscall_name("NtProtectVirtualMemory")))
             throw -1;
-    if (!c->memdump_disable_terminate_proc)
-        if (!register_trap(nullptr, terminate_process_hook_cb,      bp.for_syscall_name("NtTerminateProcess")))
-            throw -1;
+    // if (!c->memdump_disable_terminate_proc)
+    //     if (!register_trap(nullptr, terminate_process_hook_cb,      bp.for_syscall_name("NtTerminateProcess")))
+    //         throw -1;
     if (!c->memdump_disable_write_vm)
         if (!register_trap(nullptr, write_virtual_memory_hook_cb,   bp.for_syscall_name("NtWriteVirtualMemory")))
             throw -1;
@@ -1016,9 +1088,9 @@ memdump::memdump(drakvuf_t drakvuf, const memdump_config* c, output_format_t out
     if (!c->memdump_disable_set_thread && is64bit && json_wow)
         if (!register_trap(nullptr, set_information_thread_hook_cb, bp.for_syscall_name("NtSetInformationThread")))
             throw -1;
-    if (!c->memdump_disable_shellcode_detect)
-        if (!register_trap(nullptr, shellcode_cb, bp.for_syscall_name("NtFreeVirtualMemory")))
-            throw -1;
+    // if (!c->memdump_disable_shellcode_detect)
+    //     if (!register_trap(nullptr, shellcode_cb, bp.for_syscall_name("NtFreeVirtualMemory")))
+    //         throw -1;
 
     this->userhook_init(drakvuf, c, output);
 }

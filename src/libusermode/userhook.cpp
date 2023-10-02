@@ -133,6 +133,8 @@
 #include "userhook.hpp"
 #include "uh-private.hpp"
 
+#undef PRINT_DEBUG
+#define PRINT_DEBUG(...) do {} while(0)
 
 static void wrap_delete(drakvuf_trap_t* trap)
 {
