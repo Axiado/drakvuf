@@ -389,8 +389,9 @@ int main(int argc, char** argv)
     cleanup_timer();
 
     drakvuf_resume(drakvuf);
-
+    // printf("To call drakvuf_close\n");
     drakvuf_close(drakvuf, 0);
+    // printf("Finished call drakvuf_close\n");
 
     switch (injection_result)
     {

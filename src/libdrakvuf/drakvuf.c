@@ -124,20 +124,31 @@ void drakvuf_close(drakvuf_t drakvuf, const bool pause)
 {
     if (!drakvuf)
         return;
-
+    PRINT_DEBUG("Beginning drakvuf_close\n");
     drakvuf_lock_and_get_vmi(drakvuf);
 
-    if (drakvuf->vmi)
+    
+    if (drakvuf->vmi){
+
+        PRINT_DEBUG("Start to close vmi\n");
         close_vmi(drakvuf);
+        PRINT_DEBUG("Finished to close vmi\n");
+    }
 
     g_free(drakvuf->event_fds);
     g_free(drakvuf->fd_info_lookup);
     GSList* loop = drakvuf->event_fd_info;
+    
+    PRINT_DEBUG("Start to drakvuf_close loop->data loop\n");
     while (loop)
     {
         g_free(loop->data);
         loop = loop->next;
     }
+    PRINT_DEBUG("Finished to drakvuf_close loop\n");
+
+
+    PRINT_DEBUG("Start to drakvuf_close data->name loop\n");
     loop = drakvuf->context_switch_intercept_processes;
     while (loop)
     {
@@ -147,6 +158,7 @@ void drakvuf_close(drakvuf_t drakvuf, const bool pause)
         loop = loop->next;
     }
     g_slist_free(drakvuf->event_fd_info);
+    PRINT_DEBUG("Finished to drakvuf_close data->name loop\n");
 
     if (drakvuf->xen)
     {
@@ -181,6 +193,7 @@ void drakvuf_close(drakvuf_t drakvuf, const bool pause)
     drakvuf_release_vmi(drakvuf);
     g_rec_mutex_clear(&drakvuf->vmi_lock);
     g_free(drakvuf);
+    PRINT_DEBUG("Existing drakvuf_close\n");
 }
 
 bool drakvuf_init(
