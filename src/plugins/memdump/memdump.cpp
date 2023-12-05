@@ -157,6 +157,7 @@ static void save_file_metadata(const drakvuf_trap_info_t* info,
     fprintf(fp, "%s\n", json_object_get_string(jobj));
 
     PRINT_DEBUG("[MEMDUMP] %s",json_object_get_string(jobj));
+    fflush(fp); // Flush the stream
     fclose(fp);
 
     json_object_put(jobj);
@@ -367,7 +368,7 @@ printout:
             fmt::print(plugin->m_output_format, "memdump", drakvuf, info, default_print);
         }
         char local_message_buf[1024];
-        snprintf(local_message_buf, sizeof(local_message_buf), "File: %s",display_file);
+        snprintf(local_message_buf, sizeof(local_message_buf), "{\"memdump_dir\":\"%s\",\"meta_file\":\"memdump.%06d.metadata\",\"data_file\":\"%s\"}",plugin->memdump_dir,sequence_number,display_file);
         send_udp_packet(local_message_buf,"127.0.0.1",8039);
 
     }
@@ -576,7 +577,7 @@ static event_response_t terminate_process_hook_cb(drakvuf_t drakvuf, drakvuf_tra
 
     auto plugin = get_trap_plugin<memdump>(info);
 
-    dump_from_stack(drakvuf, info, plugin);
+    // dump_from_stack(drakvuf, info, plugin);
     return VMI_EVENT_RESPONSE_NONE;
 }
 
@@ -907,7 +908,7 @@ static event_response_t create_remote_thread_hook_cb(drakvuf_t drakvuf, drakvuf_
     // IN PVOID StartRoutine
     addr_t start_routine = drakvuf_get_function_argument(drakvuf, info, 5);
     auto vmi = vmi_lock_guard(drakvuf);
-    dump_if_points_to_executable_memory(drakvuf, info, vmi, target_process, start_routine, "CreateRemoteThread heuristic", nullptr);
+    // dump_if_points_to_executable_memory(drakvuf, info, vmi, target_process, start_routine, "CreateRemoteThread heuristic", nullptr);
 
     return VMI_EVENT_RESPONSE_NONE;
 }
