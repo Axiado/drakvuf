@@ -10,10 +10,10 @@ COPY package/depends.sh /tmp/depends.sh
 RUN mkdir -p /log && \
     sh /tmp/depends.sh
 
-COPY xen /build-xen
-COPY package/patch-xen.sh /build-xen
-COPY package/configure-xen.sh /build-xen
-RUN cd /build-xen && \
+COPY xen /home/axiado/drakvuf-sandbox/drakvuf/xen
+COPY package/patch-xen.sh /home/axiado/drakvuf-sandbox/drakvuf/xen/
+COPY package/configure-xen.sh /home/axiado/drakvuf-sandbox/drakvuf/xen/
+RUN cd /home/axiado/drakvuf-sandbox/drakvuf/xen && \
     chmod +x patch-xen.sh && \
     chmod +x configure-xen.sh && \
     ./patch-xen.sh && \
@@ -28,7 +28,7 @@ RUN cd /build-xen && \
     echo "Install Xen..." && \
     make -j$(nproc) install-xen && \
     make -j$(nproc) install-tools && \
-    mv /build-xen/dist/install /dist-xen && \
+    mv /home/axiado/drakvuf-sandbox/drakvuf/xen/dist/install /dist-xen && \
     mkdir -p /dist-xen/usr/share/doc/xen && \
-    mv /build-xen/LICENSES/* /dist-xen/usr/share/doc/xen && \
-    rm -rf /build-xen
+    mv /home/axiado/drakvuf-sandbox/drakvuf/xen/LICENSES/* /dist-xen/usr/share/doc/xen && \
+    rm -rf /home/axiado/drakvuf-sandbox/drakvuf/xen
